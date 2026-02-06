@@ -1,0 +1,516 @@
+From 86e8b949e264a96a0d21dd64b38adf139c91e58d Mon Sep 17 00:00:00 2001
+From: John-Spier <102952652+John-Spier@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 20:31:37 -0500
+Subject: [PATCH] Game Idiot 1.5.1
+
+---
+ CONTROL.C |  10 +++-
+ MAIN.C    | 170 ++++++++++++++++++++++++++++++++----------------------
+ MAIN.H    |   1 +
+ MOVIE.C   |   8 +--
+ music.c   |  26 +++++----
+ music.h   |   6 +-
+ 6 files changed, 135 insertions(+), 86 deletions(-)
+
+diff --git a/CONTROL.C b/CONTROL.C
+index 45f469e..320d08a 100644
+--- a/CONTROL.C
++++ b/CONTROL.C
+@@ -438,6 +438,14 @@ OSDITEM OSDItems[] =
+ 		1, //Maximum value to use strings
+ 		TABLE_ONOFF //String table
+ 	},
++	{
++		"Shift-JIS Menu? %s\n", //Name with string table
++		"Details Browser?%d\n", //Name with integer
++		OSD_SJIS, //Type of value
++		0, //Minimum value to use strings
++		1, //Maximum value to use strings
++		TABLE_ONOFF //String table
++	},
+ 	{
+ 		"Force Settings? %s\n", //Name with string table
+ 		"Force Settings? %d\n", //Name with integer
+@@ -661,7 +669,7 @@ u_char drawOSDList(int highlight, int offset)
+ 		{
+ 			if (ctr == highlight)
+ 			{
+-				FntPrint("~c880-> ");
++				FntPrint("-> ~c880"); //~c880-> 
+ 			}
+ 			else	
+ 			{
+diff --git a/MAIN.C b/MAIN.C
+index 543c1dd..36a1d65 100644
+--- a/MAIN.C
++++ b/MAIN.C
+@@ -84,11 +84,12 @@ long	fIdA;								// Applic font id.
+ int offset = 0;
+ int highlight = 0;
+ 
+-char default_title[] = "Game Idiot v1.5";
++char default_title[] = "Game Idiot v1.5.1";
+ char* title = default_title;
+ char custom_title[64];
+ 
+ const char* const type_strings[] = {
++	"Default Type",
+ 	"HITMOD Module",
+ 	"Packed VAB+XM (Jason Page)",
+ 	"STR Video",
+@@ -119,9 +120,10 @@ const char* const type_strings[] = {
+ 	"VAG Audio Sample"
+ }; //can load paramaters using force settings so thats really not needed since it wont be used often
+ 
+-#define NUM_TYPES 28
++#define NUM_TYPES 29
+ 
+ const u_char menu_types[] = {
++	MUSIC_NONE, //0
+ 	MUSIC_MOD,
+ 	MUSIC_XM,
+ 	MUSIC_STR,
+@@ -234,7 +236,7 @@ int main(void)
+ 		if (Pressed(SELECT_KEY))
+ 		{
+ 			CdStopMusic(MusicType);
+-			SwapDisk(0);
++			SwapDisk(4); //0
+ 			InitCDBrowser();
+ 		}
+ 		else if (Pressed(START_KEY))
+@@ -570,56 +572,7 @@ int drawFileList(int numFiles)
+ 			FntPrint("  ->~c800%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //RED - HIGHLIGHTED
+ 			else
+ 			{
+-				switch(fileDetails[fileNumber].type)
+-				{
+-					case MUSIC_MOD:
+-					case MUSIC_XM:
+-					case MUSIC_NEWSEQ:
+-					case MUSIC_SEQONLY:
+-					case MUSIC_PARAMS:
+-					case MUSIC_XA:
+-					case MUSIC_XA1X:
+-					case MUSIC_XA2X:
+-					case MUSIC_DA:
+-					case MUSIC_VAG:
+-						FntPrint("\t~c088%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //CYAN - MUSIC
+-						break;
+-					case MUSIC_TIM:
+-						FntPrint("\t~c044%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //CYAN - TIM
+-						break;
+-					case MUSIC_STR:
+-					case MUSIC_STR1X:
+-					case MUSIC_STR2X:
+-						FntPrint("\t~c080%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //GREEN - VIDEO
+-						break;
+-					case MUSIC_EXE:
+-					case MUSIC_NEWEXE:
+-					case MUSIC_ZEROEXE:
+-					case MUSIC_CNF:
+-						FntPrint("\t~c808%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //MAGENTA - EXE
+-						break;
+-					case MENU_DIR:
+-					case MENU_LASTDIR:
+-						FntPrint("\t~c880%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //YELLOW - DIRECTORY
+-						break;
+-					case MENU_DA:
+-					case MENU_XA:
+-					case MENU_XA1X:
+-					case MENU_XA2X:
+-					case MENU_VFS:
+-					case MENU_VFSBYTE:
+-					case MENU_VFSSECTOR:
+-					case MENU_TXT:
+-					case MENU_TXTLOSER:
+-					case MENU_TXTPSF:
+-					case MENU_TXTPIMP:
+-						FntPrint("\t~c440%4d:%s~c888\n",number++,fileDetails[fileNumber].name); //YELLOW - PACKED DIRECTORY
+-						break;
+-					default:
+-						FntPrint("\t%4d:%s\n",number++,fileDetails[fileNumber].name); //WHITE - OTHER
+-						break;
+-				}
+-
++				FntPrint("\t%s%4d:%s~c888\n", TypeColor(fileDetails[fileNumber].type), number++, fileDetails[fileNumber].name);
+ 			}
+ 
+ 			fileNumber++;
+@@ -628,6 +581,53 @@ int drawFileList(int numFiles)
+ 		return(highlight+offset);
+ }
+ 
++const char* TypeColor(u_char type)
++{
++	switch(type)
++	{
++		case MUSIC_MOD:
++		case MUSIC_XM:
++		case MUSIC_NEWSEQ:
++		case MUSIC_SEQONLY:
++		case MUSIC_PARAMS:
++		case MUSIC_XA:
++		case MUSIC_XA1X:
++		case MUSIC_XA2X:
++		case MUSIC_DA:
++		case MUSIC_VAG:
++			return "~c088"; //CYAN - MUSIC
++		case MUSIC_TIM:
++			return "~c044"; //CYAN - TIM
++		case MUSIC_STR:
++		case MUSIC_STR1X:
++		case MUSIC_STR2X:
++			return "~c080"; //GREEN - VIDEO
++		case MUSIC_EXE:
++		case MUSIC_NEWEXE:
++		case MUSIC_ZEROEXE:
++		case MUSIC_CNF:
++			return "~c808"; //MAGENTA - EXE
++		case MENU_DIR:
++		case MENU_LASTDIR:
++			return "~c880"; //YELLOW - DIRECTORY
++		case MENU_DA:
++		case MENU_XA:
++		case MENU_XA1X:
++		case MENU_XA2X:
++		case MENU_VFS:
++		case MENU_VFSBYTE:
++		case MENU_VFSSECTOR:
++		case MENU_TXT:
++		case MENU_TXTLOSER:
++		case MENU_TXTPSF:
++		case MENU_TXTPIMP:
++			return "~c440"; //YELLOW - PACKED DIRECTORY	
++		default:
++			return "~c888"; //MAKES SPACE OTHERWISE
++	}
++	return ""; //NONE (WHITE) - OTHER
++}
++
+ int drawTypeList(int numTypes, int highlight, int offset)
+ {
+ 	//int number = 1;
+@@ -642,7 +642,7 @@ int drawTypeList(int numTypes, int highlight, int offset)
+ 
+ 		fileNumber+=offset;
+ 		//number+=offset;
+-		FntPrint("File types %d to %d of %d types\n",(1+offset),(numDisplayFiles+offset), numTypes);
++		FntPrint("File type %d to %d of %d types\n",(1+offset),(numDisplayFiles+offset), numTypes);
+ 
+ 		//FntPrint("123456789A123456789B123456789C123456789D123456789E123456789F123456789G1234\n");
+ 		//74 chars max in 600 pixel wide font draw area
+@@ -752,11 +752,7 @@ void ParseFileType(int currentFile, u_char ftype)
+ 			highlight = 0;
+ 			offset = 0;
+ 			title = default_title;
+-			if (fullNames)
+-			{
+-				free3(fullNames);
+-				fullNames = 0;
+-			}
++
+ 			lastDirLevel = 0;
+ 			lastDir1[0] = fileDetails[currentFile].pos;
+ 			lastDirLength1[0] = fileDetails[currentFile].size;
+@@ -775,6 +771,11 @@ void ParseFileType(int currentFile, u_char ftype)
+ 					CreatePath(fileDetails[currentFile].name);
+ 				}
+ 			}
++			if (fullNames)
++			{
++				free3(fullNames);
++				fullNames = 0;
++			}
+ 			numFiles = GetNumDirEntries(lastDir,lastDirLength);
+ 			free3(fileDetails);
+ 			if (!currentPath[1])
+@@ -1184,7 +1185,10 @@ int LoadPsf(u_char* buf, EXTENDEDFILEDETAILS* menu, FULLFILENAME* names, int max
+ 	u_char dtype;
+ 	u_long fstack;
+ 	//FULLFILENAME tempname;
+-	*(strchr(buf, 0x80)) = 0;
++	if (!p.shiftjis)
++	{
++		*(strchr(buf, 0x80)) = 0; //shiftjis added back
++	}
+ 	buf = strchr(buf, '"');
+ 	while (buf && i != max)
+ 	{
+@@ -1346,7 +1350,7 @@ u_char GetMenuType(u_long type, u_char mtype)
+ 			}
+ 			return ftype; 
+ 		case 0x01020000 ... 0x0102FFFF:
+-			if (mtype == MENU_VFS)
++			if (mtype == MENU_VFS || mtype == MENU_VFSBYTE || mtype == MENU_VFSSECTOR)
+ 			{
+ 				return MUSIC_NEWSEQ;
+ 			}
+@@ -1494,7 +1498,7 @@ void displayFileDetails(int file)
+ 	int kanji;
+ 	
+ 	int slen = 10000;
+-
++	//char return_menu = 1;
+ 	CdIntToPos(fileDetails[file].pos,&fp);
+ 
+ 	SetBlock(32000);
+@@ -1511,9 +1515,9 @@ void displayFileDetails(int file)
+ 				
+ 		//strncpy(endString,(fileDetails[file].filename+strlen(fileDetails[file].filename)-2),2);
+ 		//endString[2] = '\0';
+-		if(fileDetails[file].type != MENU_DIR) //strcmp(endString,";1")==0 || lastDirLevel > 0
++		if(fileDetails[file].type != MENU_DIR && fileDetails[file].type != MENU_LASTDIR) //strcmp(endString,";1")==0 || lastDirLevel > 0
+ 		{
+-			FntPrint("File Details - Press Triangle/Square to cancel\n\n");
++			FntPrint("File Details - Press Triangle/Square to cancel (%d/%d)\n\n", file + 1, numFiles);
+ 			if (slen < 60)
+ 			{
+ 				FntPrint("Filename = %s\n",fullNames[file].name);
+@@ -1525,7 +1529,7 @@ void displayFileDetails(int file)
+ 		}
+ 		else
+ 		{
+-			FntPrint("Directory Details - Press Triangle/Square to cancel\n\n");
++			FntPrint("Directory Details - Press Triangle/Square to cancel (%d/%d)\n\n", file + 1, numFiles);
+ 			if (slen < 50)
+ 			{
+ 				FntPrint("Directory name = %s\n",fullNames[file].name);
+@@ -1538,9 +1542,9 @@ void displayFileDetails(int file)
+ 		
+ 		FntPrint("Size = %9d\t\t\t\t\t\t  Library Size = %d\n",fileDetails[file].size,fileDetails[file].basesize);
+ 		FntPrint("Absolute Position = %6d\t\t\t\tLibrary Position = %d\n",fileDetails[file].pos,fileDetails[file].basepos);
+-		FntPrint("Position:\t\t\t\t\t\t\t\t Filetype = %d\n", fileDetails[file].type);
+-		FntPrint("\tMin: %02x, Sec: %02x, Sector: %02x\n",fp.track,fp.minute,fp.second,fp.sector); //track doesn't work?
+-		FntPrint("Full Name:\n\n\n\n\n");
++		FntPrint("Position:\t\t\t\t\t\t\t\t Filetype = %d\n", fileDetails[file].type); //
++		FntPrint("\tMin: %02x, Sec: %02x, Sector: %02x\n",fp.minute,fp.second,fp.sector); //fp.track doesn't work?
++		FntPrint("%sFull Name:~c888\n\n\n\n\n",  TypeColor(fileDetails[file].type)); //put in color?
+ 		KanjiFntPrint(kanji, "~p%s", fileDetails[file].name);
+ 		forcetype = drawTypeList(NUM_TYPES, _highlight, _offset); //need sizeof or something
+ 		if (p.displaytime && StreamPlaying != 2)
+@@ -1567,6 +1571,26 @@ void displayFileDetails(int file)
+ 			MoveHighlight(10, NUM_TYPES, &_highlight, &_offset);
+ 			//block = INPUT_DELAY;
+ 		}
++		else if (Pressed(L1_KEY))
++		{
++			MoveHighlight(-1,numFiles, &highlight, &offset);
++			file = highlight + offset;
++		}
++		else if (Pressed(R1_KEY))
++		{
++			MoveHighlight(1,numFiles, &highlight, &offset);
++			file = highlight + offset;
++		}
++		else if (Pressed(L2_KEY))
++		{
++			MoveHighlight(-10,numFiles, &highlight, &offset);
++			file = highlight + offset;
++		}
++		else if (Pressed(R2_KEY))
++		{
++			MoveHighlight(10,numFiles, &highlight, &offset);
++			file = highlight + offset;
++		}
+ 		else if (Pressed(X_KEY))
+ 		{
+ 			// If the lid is up wait for the lid to shut, check disk
+@@ -1574,7 +1598,11 @@ void displayFileDetails(int file)
+ 			IsCdReady();
+ 			ParseFileType(file, menu_types[forcetype]);
+ 			ResetBlock(32000);
+-			break;
++			if (!p.shiftjis)
++			{
++				break;
++			}
++			file = highlight + offset;
+ 		}
+ 		else if (Pressed(CIRCLE_KEY))
+ 		{
+@@ -1585,6 +1613,10 @@ void displayFileDetails(int file)
+ 		{
+ 			changeResMain(-1);
+ 		}
++		else if (Pressed(START_KEY))
++		{
++			displayOSD();
++		}
+ 		DrawSync(0);
+ 		FntFlush(-1);
+ 		KanjiFntFlush(kanji);
+diff --git a/MAIN.H b/MAIN.H
+index 1b19404..2b0a5ac 100644
+--- a/MAIN.H
++++ b/MAIN.H
+@@ -86,5 +86,6 @@ void CreateSpecialDirs();
+ void PutEnvs();
+ u_char SetCustomTitle(char* name, u_char type, short maxlen);
+ void MusicAdjust(short tempo, short tickmode);
++const char* TypeColor(u_char type);
+ //u_char* strchr_jis(u_char* s, u_char c, char sjis);
+ #endif // __MAIN_H 
+diff --git a/MOVIE.C b/MOVIE.C
+index 6d58d69..6c4a132 100644
+--- a/MOVIE.C
++++ b/MOVIE.C
+@@ -318,14 +318,14 @@ short PlayStream(StrInfo *str, int endSector, char speed) {
+ 				FntPrint("\nVLC Time = %d\n", t2);
+ 				FntPrint("VSyncs: %d ", VSync(-1) - p.vsyncBase);
+ 				FntPrint("Total Time = %d\n", VSync(1) - t1);	// Timing.
+-				if (Pressed(TRIANGLE_KEY) || Pressed(SQUARE_KEY))
++				if (Pressed(TRIANGLE_KEY) || Pressed(SELECT_KEY))
+ 				{
+ 					OSD_MENU_TYPE = 0;
+ 				}
+ 				if (Pressed(START_KEY)) {
+ 					OSD_MENU_TYPE = 1;
+ 				}
+-				if (Pressed(L1_KEY)) {
++				if (Pressed(L2_KEY)) {
+ 					dec.rewindSwitch = -1;
+ 					SeekMusic(MUSIC_STR, 0, -p.seekframes, CdPosToInt(&fp.pos), endSector, -p.seekseconds, -p.seekminutes, speed);
+ 					//p.vsyncPauseBase = 0; //VSync(-1);
+@@ -394,7 +394,7 @@ short PlayStream(StrInfo *str, int endSector, char speed) {
+ 				{
+ 					OSDIncDec(10, OSDType);
+ 				}
+-				if (Pressed(SQUARE_KEY)) {
++				if (Pressed(SELECT_KEY)) {
+ 					OSD_MENU_TYPE = 2;
+ 				}
+ 				if (Pressed(CIRCLE_KEY)) {
+@@ -403,7 +403,7 @@ short PlayStream(StrInfo *str, int endSector, char speed) {
+ 				}
+ 				break;
+ 			case 0:
+-				if (Pressed(L1_KEY)) {
++				if (Pressed(L2_KEY)) {
+ 					dec.rewindSwitch = -1;
+ 					SeekMusic(MUSIC_STR, 0, -p.seekframes, CdPosToInt(&fp.pos), endSector, -p.seekseconds, -p.seekminutes, speed);
+ 					//p.vsyncPauseBase = 0; //VSync(-1);
+diff --git a/music.c b/music.c
+index 0fa57ec..56859f3 100644
+--- a/music.c
++++ b/music.c
+@@ -98,8 +98,8 @@ ParamsShared p =
+ 	1, //displaytime
+ 	120, //tempo
+ 	0, //pausestart
+-	//1, //shiftjis
+-	1 //realloc
++	1, //realloc
++	1 //shiftjis
+ };
+ 
+ char seq_table[SS_SEQ_TABSIZ * 1 * 16];
+@@ -231,9 +231,9 @@ void OSDIncDec(int val, u_char type)
+ 		case OSD_PAUSE:
+ 			p.pausestart = constrain(p.pausestart + val, 0, 1);
+ 			break;
+-		//case OSD_SJIS:
+-		//	p.shiftjis = constrain(p.shiftjis + val, 0, 1);
+-		//	break;
++		case OSD_SJIS:
++			p.shiftjis = constrain(p.shiftjis + val, 0, 1);
++			break;
+ 		case OSD_REALLOC:
+ 			p.realloc = constrain(p.realloc + val, 0, 1);
+ 			break;
+@@ -462,8 +462,8 @@ int OSDGetVal(u_char type)
+ 			return p.tempo;
+ 		case OSD_PAUSE:
+ 			return p.pausestart;
+-		//case OSD_SJIS:
+-		//	return p.shiftjis;
++		case OSD_SJIS:
++			return p.shiftjis;
+ 		case OSD_REALLOC:
+ 			return p.realloc;
+ 		default:
+@@ -984,6 +984,7 @@ int LoadMusic(EXTENDEDFILEDETAILS file, char* LongPath)
+ 			}
+ 			else //if (file.pos)
+ 			{
++				FindFileDetails(&file, LongPath);
+ 				CdIntToPos(file.pos, &fp);
+ 				CdControlB(CdlPlay, (u_char*)&fp, 0);
+ 			}
+@@ -1136,7 +1137,7 @@ int LoadMusic(EXTENDEDFILEDETAILS file, char* LongPath)
+ 		case MUSIC_ZEROEXE:
+ 			ChangeResMain(4);
+ 			result = KanjiFntOpen(18, 16, 600, 200, 960, 0, 960, 256, 0, 256);
+-			KanjiFntPrint(result, "~p\n\nNow Playing:\n\n%s", file.name); //\t\t\tNow Playing
++			KanjiFntPrint(result, "~p\nNow Playing:\n\n%s\n\n\n", file.name); //\t\t\tNow Playing
+ 			fname = calloc3(24, 1);
+ 			fname2 = calloc3(((8*8)+15+9), 1);
+ 			if (file.type == MUSIC_CNF) {
+@@ -1154,9 +1155,15 @@ int LoadMusic(EXTENDEDFILEDETAILS file, char* LongPath)
+ 			} else if (LongPath) {
+ 				FindFileDetails(&file, LongPath);
+ 				SplitFilename(fname, fname2, LongPath);
++				KanjiFntPrint("~pfrom\n\n%s", LongPath);
+ 			} else {
+ 				sprintf(fname2, "cdrom:%s", currentPath);
+ 				sprintf(fname, "cdrom:%s", file.name);
++				if (currentPath[1]) {
++					KanjiFntPrint("~pfrom\n\ncdrom:%s\\%s%s", currentPath, file.name, file.version); //currentPath[1] ? "\\" : "",
++				} else {
++					KanjiFntPrint("~pfrom\n\ncdrom:%s%s%s", currentPath, file.name, file.version); //printing empty string results in space
++				}
+ 			}
+ 			if (file.type == MUSIC_NEWEXE || file.type == MUSIC_ZEROEXE) { //Using 0 for stack will use default stack
+ 				FindFileDetails(&file, LongPath);
+@@ -1194,8 +1201,7 @@ int LoadMusic(EXTENDEDFILEDETAILS file, char* LongPath)
+ 			printf("Back From EXE Somehow\n");
+ 			free3(fname);
+ 			free3(fname2);
+-			if (file.type == MUSIC_CNF)
+-			{
++			if (file.type == MUSIC_CNF) {
+ 				free3(songData);
+ 			}
+ 			break;
+diff --git a/music.h b/music.h
+index e527335..004554c 100644
+--- a/music.h
++++ b/music.h
+@@ -90,8 +90,8 @@ typedef struct {
+ 	short displaytime;
+ 	short tempo;
+ 	char pausestart;
+-	//char shiftjis;
+ 	char realloc;
++	char shiftjis;
+ } ParamsShared;
+ 
+ //Common Music
+@@ -130,6 +130,7 @@ typedef struct {
+ #define MUSIC_XA_DISC 0x1C //for this and MUSIC_STR_DISC above speed is & 0x1000 and & 0x2000 in basepos
+ */
+ 
++#define MENU_HIGHLIGHT_COLOR 0x7F
+ #define MENU_CANT_SELECT 0x80
+ 
+ #define MENU_VFS_RAMCD 0xEF //the below but laods stuff from CD. add 2 dummy files (basesize) to both to replace with . and ..
+@@ -168,7 +169,7 @@ typedef struct {
+ #define XM_XMPAL 0x02
+ #define XM_S3MPAL 0x03
+ 
+-#define OSDTYPES 33
++#define OSDTYPES 34
+ 
+ #define OSD_NONE 0x00
+ #define OSD_VOLUME 0x01
+@@ -203,6 +204,7 @@ typedef struct {
+ #define OSD_PAUSE 0x1E
+ #define OSD_SJIS 0x1F
+ #define OSD_REALLOC 0x20
++//#define OSD_JISMENU 0x21
+ 
+ #define OSD_ALTNONE 0xFF
+ 
+-- 
+2.51.1.windows.1
+
