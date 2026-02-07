@@ -13,7 +13,7 @@ PSX video/music player and game loader
 Extract EXAMPLE5 from LOWCD.ZIP and create a git repo for the directory, then commit all the files. Afterwards apply the patches. The XMPLAY library will also be needed to compile.
 
 ## Supported Formats
-Filetypes for VFS/TXT menus are provided in parentheses after the format names. SEQ/VAB, EXE, CDXA, STR, and CDDA are not supported by VFS.
+Filetypes for VFS/TXT menus are provided in parentheses after the format names. EXE, CDXA, STR, and CDDA are not supported by VFS. SEQ/VAB is not supported by any TXT menu.
 
 ### VT/ParamsV2 (N/A)
 Various audio parameters for the SPU.
